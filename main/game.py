@@ -33,7 +33,20 @@ def draw_text(surf, text, size, x , y ):
     text_rect = text_surface.get_rect()
     text_rect.midtop = (x, y)
     surf.blit(text_surface, text_rect)
-
+def newmob():
+    m = Mob()
+    all_sprites.add(m)
+    mobs.add(m)
+def draw_shield_bar(surf, x, y, pct):
+    if pct < 0:
+        pct = 0
+    BAR_LENGTH = 150
+    BAR_HEIGHT = 10
+    fill = (pct / 150) * BAR_LENGTH
+    outline_rect = pygame.Rect(x, y, BAR_LENGTH, BAR_HEIGHT)
+    fill_rect = pygame.Rect(x, y, fill, BAR_HEIGHT)
+    pygame.draw.rect(surf, GREEN, fill_rect)
+    pygame.draw.rect(surf, WHITE, outline_rect, 2)
 
 class Player(pygame.sprite.Sprite):
     def __init__(self):
@@ -45,6 +58,7 @@ class Player(pygame.sprite.Sprite):
         self.rect.centerx = WIDTH / 2
         self.rect.bottom = HEIGHT - 10 
         self.speedx = 0 
+        self.shield = 150
     def update(self):
         self.speedx = 0
         keystate = pygame.key.get_pressed()
@@ -109,20 +123,19 @@ class Bullet(pygame.sprite.Sprite):
         self.rect.y += self.speedy
         if self.rect.bottom < 0: self.kill()
 
-background = pygame.image.load(path.join(img_dir, "BG.png")).convert() 
+background = pygame.image.load(path.join(img_dir, "BG2.jpg")).convert() 
 background = pygame.transform.scale(background, (WIDTH, HEIGHT))
 background_rect = background.get_rect() 
 player_img = pygame.image.load(path.join(img_dir, "playerShip1_orange.png")).convert() 
 meteor_images = []
-meteor_list = ['meteorBrown_big1.png', 'meteorBrown_med1.png', 'meteorBrown_med1.png', 
-               'meteorBrown_med3.png', 'meteorBrown_small1.png', 'meteorBrown_small2.png', 
-               'meteorBrown_tiny1.png']
+meteor_list = ['meteorBrown_big1.png', 'meteorBrown_med1.png', 
+               'meteorBrown_med3.png', 'meteorGrey_big1.png', 'meteorGrey_med1.png', 'meteorGrey_med2.png', 'meteorGrey_small1.png', 'meteorGrey_small2.png', 'meteorGrey_tiny1.png']
 for img in meteor_list:
     meteor_images.append(pygame.image.load(path.join(img_dir, img)).convert())
 shoot_sound = pygame.mixer.Sound(path.join(snd_dir, "pew.wav"))
 pygame.mixer.music.load(path.join(snd_dir, "BG.wav"))
 pygame.mixer.music.set_volume(0.5)
-expl_sound = []
+expl_sound = [] 
 expl_list = ["expl3.wav", "expl6.wav"]
 for snd in expl_list:
     expl_sound.append(pygame.mixer.Sound(path.join(snd_dir, snd)))
@@ -136,9 +149,7 @@ player = Player()
 all_sprites.add(player)
 # time.sleep(2)
 for i in range(8):
-    m = Mob()
-    all_sprites.add(m)
-    mobs.add(m)
+    newmob()
 score = 0
 
 pygame.mixer.music.play(loops= -1)
@@ -160,14 +171,19 @@ while running:
         all_sprites.add(m)
         mobs.add(m)
     
-    hits = pygame.sprite.spritecollide(player, mobs, False)
-    if hits: 
-        running = False
+    hits = pygame.sprite.spritecollide(player, mobs, False, pygame.sprite.collide_circle)
+    for hit in hits: 
+        player.shield = player.shield - 10
+        # newmob()
+        if player.shield <= 0:
+            running = False
+        
 
     all_sprites.update()
     screen.fill(BLACK)
     screen.blit(background, background_rect)
     all_sprites.draw(screen)
     draw_text(screen, str(score), 18, WIDTH / 2, 10)
+    draw_shield_bar(screen, 5, 5, player.shield)
     pygame.display.flip()
 pygame.quit()
