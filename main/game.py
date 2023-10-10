@@ -20,10 +20,12 @@ GREEN = (126, 235, 16)
 BLUE = (0, 0, 255)
 YELLOW = (255, 255, 0)
 
+TITLE = 'GAME1'
+
 pygame.init()
 pygame.mixer.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Game1")
+pygame.display.set_caption(str(TITLE))
 clock = pygame.time.Clock()
 
 font_name = pygame.font.match_font("fixedsys")
@@ -34,6 +36,12 @@ def draw_text(surf, text, size, x , y ):
     text_rect = text_surface.get_rect()
     text_rect.midtop = (x, y)
     surf.blit(text_surface, text_rect)
+def draw_lives(surf, x, y, lives, img):
+    for i in range(lives):
+        img_rect = img.get_rect()
+        img_rect.x = x + 30 * i
+        img_rect.y = y
+        surf.blit(img, img_rect)
 def newmob():
     m = Mob()
     all_sprites.add(m)
@@ -48,11 +56,12 @@ def draw_shield_bar(surf, x, y, pct):
     fill_rect = pygame.Rect(x, y, fill, BAR_HEIGHT)
     pygame.draw.rect(surf, GREEN, fill_rect)
     pygame.draw.rect(surf, WHITE, outline_rect, 2)
-def show_go_screen():
+def show_go_screen(total_score):
     screen.blit(background, background_rect)
-    draw_text(screen, "SHMUP!", 64, WIDTH / 2, HEIGHT / 4)
-    draw_text(screen, "Arrow keys move, Space to fire", 22,
-              WIDTH / 2, HEIGHT / 2)
+    draw_text(screen, f"{TITLE}", 64, WIDTH / 2, HEIGHT / 4)
+    draw_text(screen, "Arrow keys move, Space to fire", 22, WIDTH / 2, HEIGHT / 2)
+    draw_text(screen, f"TOTAL SCORE: {total_score}", 22, WIDTH / 2, (HEIGHT / 2) - 20)
+    
     draw_text(screen, "Press a key to begin", 18, WIDTH / 2, HEIGHT * 3 / 4)
     pygame.display.flip()
     waiting = True
@@ -63,6 +72,7 @@ def show_go_screen():
                 pygame.quit()
             if event.type == pygame.KEYUP:
                 waiting = False
+            
 class Player(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
@@ -78,6 +88,9 @@ class Player(pygame.sprite.Sprite):
         self.last_shot = pygame.time.get_ticks()
         self.power = 1
         self.power_time = pygame.time.get_ticks()
+        self.lives = 3
+        self.hidden = False
+        self.hide_timer = pygame.time.get_ticks()
     def update(self):
         self.speedx = 0
         keystate = pygame.key.get_pressed()
@@ -95,6 +108,12 @@ class Player(pygame.sprite.Sprite):
         if self.power >= 2 and pygame.time.get_ticks() - self.power_time > POWERUP_TIME:
             self.power -= 1
             self.power_time = pygame.time.get_ticks()
+        if self.hidden and pygame.time.get_ticks() - self.hide_timer > 1000:
+            self.hidden = False
+            self.rect.centerx = WIDTH / 2
+            self.rect.bottom = HEIGHT - 10
+
+
     def shoot(self):
         now = pygame.time.get_ticks()
         if now - self.last_shot > self.shoot_delay:
@@ -115,6 +134,11 @@ class Player(pygame.sprite.Sprite):
     def powerup(self):
         self.power += 1
         self.power_time = pygame.time.get_ticks()
+    def hide(self):
+        self.hidden = True
+        self.hide_timer = pygame.time.get_ticks()
+        self.rect.center = (WIDTH / 2, HEIGHT + 200)
+
 class Mob(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
@@ -205,6 +229,8 @@ background = pygame.image.load(path.join(img_dir, "BG2.jpg")).convert()
 background = pygame.transform.scale(background, (WIDTH, HEIGHT))
 background_rect = background.get_rect() 
 player_img = pygame.image.load(path.join(img_dir, "playerShip1_orange.png")).convert() 
+player_mini_img = pygame.transform.scale(player_img, (25, 19))
+player_mini_img.set_colorkey(BLACK)
 meteor_images = []
 meteor_list = ['meteorBrown_big1.png', 'meteorBrown_med1.png', 
                'meteorBrown_med3.png', 'meteorGrey_big1.png', 'meteorGrey_med1.png', 'meteorGrey_med2.png', 'meteorGrey_small1.png', 'meteorGrey_small2.png', 'meteorGrey_tiny1.png']
@@ -221,6 +247,7 @@ bullet_img = pygame.image.load(path.join(img_dir, "laserRed16.png")).convert()
 explosion_anim = {}
 explosion_anim["lg"] = []
 explosion_anim["sm"] = []
+explosion_anim['player'] = []
 for i in range(9):
     filename = f'regularExplosion0{i}.png'
     img = pygame.image.load(path.join(img_dir, filename)).convert()
@@ -229,6 +256,12 @@ for i in range(9):
     explosion_anim['lg'].append(img_lg)
     img_sm = pygame.transform.scale(img, (32, 32))
     explosion_anim['sm'].append(img_sm)
+
+    filename = f'sonicExplosion0{i}.png'
+    img = pygame.image.load(path.join(img_dir, filename)).convert()
+    img.set_colorkey(BLACK)
+    explosion_anim['player'].append(img)
+
 
 powerup_images = {}
 powerup_images['shield'] = pygame.image.load(path.join(img_dir, 'shield_gold.png')).convert()
@@ -251,7 +284,7 @@ running = True
 game_over = True
 while running:
     if game_over:
-        show_go_screen()
+        show_go_screen(score)
         game_over = False
         all_sprites = pygame.sprite.Group()
         mobs = pygame.sprite.Group()
@@ -316,5 +349,6 @@ while running:
     all_sprites.draw(screen)
     draw_text(screen, str(score), 18, WIDTH / 2, 10)
     draw_shield_bar(screen, 5, 5, player.shield)
+    draw_lives(screen, WIDTH - 100, 5, player.lives, player_mini_img)
     pygame.display.flip()
 pygame.quit()
